@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Waste Management - OS Arcade Simulator</title>
+    <style>
+        :root {
+            --producer-color: #10b981;
+            --consumer-color: #06b6d4;
+            --danger: #f43f5e;
+            --warning: #f59e0b;
+            --dark: #020617;
+            --card-bg: #0f172a;
+            --border: #1e293b;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--dark);
+            color: #f8fafc;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 24px 16px;
+            overflow-x: hidden;
+            background-size: 32px 32px;
+            background-image: 
+                linear-gradient(to right, rgba(56, 189, 248, 0.04) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(56, 189, 248, 0.04) 1px, transparent 1px);
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 2.2rem;
+            font-weight: 900;
+            background: linear-gradient(to right, #34d399, #22d3ee);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 0.5px;
+        }
+
+        header p {
+            margin: 6px 0;
+            color: #94a3b8;
+            font-weight: 600;
+            font-size: 0.95rem;
+            font-family: monospace;
+        }
+
+        /* Stats HUD */
+        .hud-bar {
+            display: flex;
+            gap: 20px;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid var(--border);
+            padding: 10px 24px;
+            border-radius: 16px;
+            margin-bottom: 20px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+
+        .hud-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .hud-val {
+            font-weight: 900;
+            color: #38bdf8;
+        }
+
+        /* Simulation Container */
+        .simulation-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 980px;
+            background: rgba(15, 23, 42, 0.95);
+            padding: 45px 30px;
+            border-radius: 24px;
+            box-shadow: 0 0 40px rgba(0,0,0,0.6);
+            position: relative;
+            border: 2px solid var(--border);
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        .actor {
+            text-align: center;
+            width: 170px;
+            z-index: 10;
+            transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        .actor-icon {
+            font-size: 68px;
+            display: block;
+            margin-bottom: 8px;
+            filter: drop-shadow(0 0 15px rgba(56, 189, 248, 0.3));
+        }
+
+        .actor strong {
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+            font-family: monospace;
+        }
+
+        .buffer-area {
+            text-align: center;
+            flex-grow: 1;
+            margin: 0 20px;
+            position: relative;
+        }
+
+        .buffer-label {
+            font-weight: 800;
+            margin-bottom: 12px;
+            display: block;
+            color: #94a3b8;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+            font-family: monospace;
+        }
+
+        .buffer-slots {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            background: #020617;
+            padding: 24px 20px;
+            border-radius: 20px;
+            border: 2px solid var(--border);
+            transition: all 0.3s ease;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.6);
+        }
+
+        .slot {
+            width: 56px;
+            height: 56px;
+            background: #0f172a;
+            border: 2px dashed #334155;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+            transition: all 0.3s ease;
+        }
+
+        .slot.filled {
+            border-style: solid;
+            border-color: var(--producer-color);
+            background: rgba(16, 185, 129, 0.15);
+            transform: scale(1.06);
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+        }
+
+        #race-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            background: rgba(244, 63, 94, 0.96);
+            color: white;
+            padding: 22px 42px;
+            border-radius: 50px;
+            font-weight: 900;
+            font-size: 1.2rem;
+            z-index: 100;
+            white-space: nowrap;
+            box-shadow: 0 0 45px rgba(244, 63, 94, 0.8);
+            border: 2px solid #fecdd3;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            font-family: monospace;
+        }
+
+        #solution-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            background: linear-gradient(135deg, #10b981, #06b6d4);
+            color: #020617;
+            padding: 26px 48px;
+            border-radius: 40px;
+            font-weight: 900;
+            z-index: 101;
+            box-shadow: 0 0 50px rgba(16, 185, 129, 0.9);
+            border: 2px solid white;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            text-align: center;
+        }
+
+        .dashboard {
+            display: flex;
+            gap: 18px;
+            margin-top: 25px;
+            width: 100%;
+            max-width: 980px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .card {
+            background: rgba(15, 23, 42, 0.9);
+            padding: 16px 26px;
+            border-radius: 18px;
+            text-align: center;
+            min-width: 160px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+            border: 1px solid var(--border);
+            border-bottom: 4px solid var(--producer-color);
+        }
+
+        .card h4 { margin: 0; font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-family: monospace; letter-spacing: 0.5px; }
+        .card .val { font-size: 2.2rem; font-weight: 900; font-family: monospace; margin-top: 4px; }
+
+        .controls {
+            margin-top: 25px;
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        button {
+            padding: 14px 24px;
+            font-size: 0.95rem;
+            font-weight: 800;
+            border: none;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: monospace;
+        }
+
+        .btn-p { background: linear-gradient(135deg, #059669, #10b981); color: #020617; box-shadow: 0 0 20px rgba(16,185,129,0.4); }
+        .btn-c { background: linear-gradient(135deg, #0284c7, #06b6d4); color: #020617; box-shadow: 0 0 20px rgba(6,182,212,0.4); }
+        .btn-r { background: linear-gradient(135deg, #e11d48, #f43f5e); color: white; box-shadow: 0 0 25px rgba(244,63,94,0.6); }
+        .btn-reset { background: #334155; color: white; }
+
+        button:hover { filter: brightness(1.15); transform: translateY(-2px); }
+        button:active { transform: translateY(0); }
+
+        .status-bar {
+            width: 100%;
+            max-width: 980px;
+            margin-top: 20px;
+            padding: 16px 22px;
+            border-radius: 14px;
+            background: #020617;
+            color: #38bdf8;
+            border: 1px solid var(--border);
+            text-align: center;
+            font-weight: 600;
+            font-size: 0.92rem;
+            font-family: monospace;
+            box-sizing: border-box;
+        }
+
+        @keyframes severeShake {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            10% { transform: translate(-10px, -6px) rotate(-2deg); }
+            20% { transform: translate(10px, 6px) rotate(2deg); }
+            30% { transform: translate(-12px, 5px) rotate(-2.5deg); }
+            40% { transform: translate(11px, -6px) rotate(2.5deg); }
+            50% { transform: translate(-8px, -3px) rotate(-1.5deg); }
+            60% { transform: translate(9px, 4px) rotate(1.5deg); }
+            70% { transform: translate(-6px, 3px) rotate(-1deg); }
+            80% { transform: translate(5px, -4px) rotate(0.8deg); }
+            90% { transform: translate(-3px, 2px) rotate(0deg); }
+        }
+
+        .race-mode .buffer-slots {
+            border-color: var(--danger);
+            animation: severeShake 0.35s infinite;
+            box-shadow: 0 0 35px rgba(244, 63, 94, 0.7);
+        }
+
+        .lock-active {
+            border-color: var(--danger) !important;
+            box-shadow: 0 0 25px rgba(244, 63, 94, 0.6) !important;
+        }
+
+        .waiting { opacity: 0.4; filter: grayscale(1); }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🗑️ SMART WASTE OS · ARCADE ARENA</h1>
+        <p>Operating Systems Producer–Consumer &amp; Synchronization Simulator</p>
+    </header>
+
+    <!-- Gaming HUD -->
+    <div class="hud-bar">
+        <div class="hud-item"><span>INTEGRITY:</span> <span class="hud-val" id="hud-hp" style="color: #34d399;">100%</span></div>
+        <span>|</span>
+        <div class="hud-item"><span>SCORE:</span> <span class="hud-val" id="hud-score" style="color: #facc15;">1,200 XP</span></div>
+        <span>|</span>
+        <div class="hud-item"><span>MUTEX SHIELD:</span> <span class="hud-val" id="hud-mutex" style="color: #38bdf8;">ACTIVE</span></div>
+    </div>
+
+    <div class="simulation-container" id="sim-box">
+        <!-- Race Overlays -->
+        <div id="race-overlay">⚡ CRITICAL HAZARD: RACE CONDITION DETECTED!</div>
+        <div id="solution-overlay">
+            <div style="font-size: 1.8rem; margin-bottom: 6px;">🎉 SOLVED!</div>
+            <div style="font-size: 1rem; font-weight: 700;">RACE CONDITION SOLVED BY MUTEX SYNCHRONIZATION!</div>
+            <div style="font-size: 0.85rem; color: #020617; margin-top: 4px; font-family: monospace;">+1,000 XP · 100% Data Integrity Guaranteed</div>
+        </div>
+
+        <!-- Producer -->
+        <div class="actor" id="producer-ui">
+            <span class="actor-icon">🚛</span>
+            <strong style="color: #34d399;">ECOTRUCK-01</strong>
+            <div id="p-status" style="font-size: 0.8rem; color: #94a3b8; margin-top:5px; font-weight: 600; font-family: monospace;">Ready</div>
+        </div>
+
+        <!-- Shared Buffer -->
+        <div class="buffer-area">
+            <span class="buffer-label">CRITICAL SECTION HOOPER <span id="count-ui">(0/5)</span></span>
+            <div class="buffer-slots" id="buffer-slots">
+                <div class="slot" id="s0">⬜</div>
+                <div class="slot" id="s1">⬜</div>
+                <div class="slot" id="s2">⬜</div>
+                <div class="slot" id="s3">⬜</div>
+                <div class="slot" id="s4">⬜</div>
+            </div>
+        </div>
+
+        <!-- Consumer -->
+        <div class="actor" id="consumer-ui">
+            <span class="actor-icon">♻️</span>
+            <strong style="color: #22d3ee;">RECYCLEBOT-02</strong>
+            <div id="c-status" style="font-size: 0.8rem; color: #94a3b8; margin-top:5px; font-weight: 600; font-family: monospace;">Ready</div>
+        </div>
+    </div>
+
+    <!-- Semaphores -->
+    <div class="dashboard">
+        <div class="card" style="border-bottom-color: var(--producer-color);">
+            <h4>Empty (Slots Free)</h4>
+            <div class="val" id="sem-empty" style="color: var(--producer-color);">5</div>
+        </div>
+        <div class="card" style="border-bottom-color: var(--consumer-color);">
+            <h4>Full (Items Ready)</h4>
+            <div class="val" id="sem-full" style="color: var(--consumer-color);">0</div>
+        </div>
+        <div class="card" style="border-bottom-color: var(--danger);">
+            <h4>Binary Mutex Shield</h4>
+            <div class="val" id="sem-lock" style="color: var(--danger);">1</div>
+        </div>
+    </div>
+
+    <div class="status-bar" id="status-bar">
+        SYSTEM ONLINE: Awaiting producer or consumer command.
+    </div>
+
+    <div class="controls">
+        <button class="btn-p" onclick="produce()">🚛 DEPLOY PAYLOAD (+100 XP)</button>
+        <button class="btn-c" onclick="consume()">♻️ HARVEST RECYCLE (+150 XP)</button>
+        <button class="btn-r" onclick="simulateInterestingRace()">⚡ SIMULATE RACE &amp; SOLVE IT!</button>
+        <button class="btn-reset" onclick="resetSim()">🔄 RESET</button>
+    </div>
+
+    <script>
+        let buffer = [];
+        const MAX = 5;
+        let empty = MAX;
+        let full = 0;
+        let bufferLock = 1;
+        let score = 1200;
+
+        const statusBar = document.getElementById('status-bar');
+        const raceOverlay = document.getElementById('race-overlay');
+        const solutionOverlay = document.getElementById('solution-overlay');
+
+        // Web Audio Synthesizer
+        const audioCtx = (window.AudioContext || window.webkitAudioContext) ? new (window.AudioContext || window.webkitAudioContext)() : null;
+        function beep(freq, duration, type='sine') {
+            if (!audioCtx) return;
+            try {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch(e) {}
+        }
+
+        function playVictory() {
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+            [523.25, 659.25, 783.99, 1046.5].forEach((freq, idx) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+                gain.gain.setValueAtTime(0.12, now + idx * 0.08);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.3);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now + idx * 0.08);
+                osc.stop(now + idx * 0.08 + 0.3);
+            });
+        }
+
+        function updateUI() {
+            const icons = ['🧴', '🥫', '📦', '🍾', '🥬'];
+            for (let i = 0; i < MAX; i++) {
+                const s = document.getElementById(`s${i}`);
+                if (i < buffer.length) {
+                    s.innerText = buffer[i] || icons[i % icons.length];
+                    s.classList.add('filled');
+                } else {
+                    s.innerText = "⬜";
+                    s.classList.remove('filled');
+                }
+            }
+
+            document.getElementById('sem-empty').innerText = empty;
+            document.getElementById('sem-full').innerText = full;
+            document.getElementById('sem-lock').innerText = bufferLock;
+            document.getElementById('count-ui').innerText = `(${buffer.length}/${MAX})`;
+            document.getElementById('hud-score').innerText = `${score.toLocaleString()} XP`;
+
+            document.getElementById('buffer-slots').className = bufferLock === 0 ? 'buffer-slots lock-active' : 'buffer-slots';
+        }
+
+        async function produce() {
+            if (empty === 0) {
+                updateStatus("🔴 BUFFER FULL — EcoTruck waiting on wait(empty).", "⏸ Blocked");
+                document.getElementById('producer-ui').classList.add('waiting');
+                beep(180, 0.2, 'sawtooth');
+                return;
+            }
+
+            document.getElementById('producer-ui').classList.remove('waiting');
+            bufferLock = 0; // wait(mutex)
+            updateUI();
+            updateStatus("🚛 EcoTruck acquired Mutex Shield! Inserting item...", "🔐 Shield Active");
+            beep(440, 0.1, 'square');
+
+            await new Promise(r => setTimeout(r, 650));
+            
+            buffer.push("🗑️");
+            empty--;
+            full++;
+            bufferLock = 1; // signal(mutex)
+            score += 100;
+            
+            updateUI();
+            updateStatus("🟢 EcoTruck payload deposited safely (+100 XP).", "✓ Success");
+            beep(660, 0.15, 'triangle');
+        }
+
+        async function consume() {
+            if (full === 0) {
+                updateStatus("🔵 BUFFER EMPTY — RecycleBot waiting on wait(full).", "⏸ Blocked");
+                document.getElementById('consumer-ui').classList.add('waiting');
+                beep(180, 0.2, 'sawtooth');
+                return;
+            }
+
+            document.getElementById('consumer-ui').classList.remove('waiting');
+            bufferLock = 0; // wait(mutex)
+            updateUI();
+            updateStatus("♻️ RecycleBot acquired Mutex Shield! Extracting item...", "🔐 Shield Active");
+            beep(440, 0.1, 'square');
+
+            await new Promise(r => setTimeout(r, 650));
+
+            buffer.pop();
+            full--;
+            empty++;
+            bufferLock = 1; // signal(mutex)
+            score += 150;
+
+            updateUI();
+            updateStatus("🟢 RecycleBot item extracted & refined safely (+150 XP).", "✓ Success");
+            beep(520, 0.15, 'sine');
+        }
+
+        async function simulateInterestingRace() {
+            resetSim();
+            buffer = ["🗑️", "🗑️"];
+            empty = 3; full = 2;
+            updateUI();
+
+            // 1. Assault
+            updateStatus("🚨 CRITICAL HAZARD: Both threads charging into Critical Section without Mutex!", "⚠️ CHARGING...");
+            document.getElementById('producer-ui').style.transform = "translateX(140px)";
+            document.getElementById('consumer-ui').style.transform = "translateX(-140px)";
+            document.getElementById('sim-box').classList.add('race-mode');
+            document.getElementById('hud-hp').innerText = "35%";
+            document.getElementById('hud-hp').style.color = "#f43f5e";
+            beep(880, 0.4, 'sawtooth');
+
+            await new Promise(r => setTimeout(r, 1000));
+            
+            // 2. Collision
+            raceOverlay.style.transform = "translate(-50%, -50%) scale(1.15)";
+            beep(140, 0.5, 'sawtooth');
+            
+            await new Promise(r => setTimeout(r, 2200));
+
+            // 3. Mutex Forcefield Resolution
+            raceOverlay.style.transform = "translate(-50%, -50%) scale(0)";
+            updateStatus("🛡️ Binary Mutex Barrier deployed! Consumer repelled into Stasis Queue.", "🔐 FORCEFIELD ACTIVE");
+            beep(350, 0.25, 'triangle');
+            
+            // Repel consumer
+            document.getElementById('consumer-ui').style.transform = "translateX(-60px)";
+            document.getElementById('consumer-ui').classList.add('waiting');
+            
+            await new Promise(r => setTimeout(r, 1000));
+            
+            // Safe producer write
+            buffer.push("🗑️"); empty--; full++;
+            updateUI();
+            document.getElementById('producer-ui').style.transform = "translateX(0)";
+            
+            await new Promise(r => setTimeout(r, 800));
+
+            // 4. Celebration Solved
+            document.getElementById('sim-box').classList.remove('race-mode');
+            document.getElementById('consumer-ui').classList.remove('waiting');
+            document.getElementById('consumer-ui').style.transform = "translateX(0)";
+            document.getElementById('hud-hp').innerText = "100%";
+            document.getElementById('hud-hp').style.color = "#34d399";
+            score += 1000;
+            updateUI();
+
+            solutionOverlay.style.transform = "translate(-50%, -50%) scale(1)";
+            playVictory();
+            
+            await new Promise(r => setTimeout(r, 3200));
+            solutionOverlay.style.transform = "translate(-50%, -50%) scale(0)";
+            updateStatus("🟢 SYNCHRONIZATION VICTORY: Race condition solved. Data Integrity Guaranteed.", "Ready");
+        }
+
+        function updateStatus(main, actorMsg) {
+            statusBar.innerText = main;
+            document.getElementById('p-status').innerText = actorMsg;
+            document.getElementById('c-status').innerText = actorMsg;
+        }
+
+        function resetSim() {
+            buffer = [];
+            empty = MAX;
+            full = 0;
+            bufferLock = 1;
+            document.getElementById('producer-ui').classList.remove('waiting');
+            document.getElementById('consumer-ui').classList.remove('waiting');
+            document.getElementById('producer-ui').style.transform = "translateX(0)";
+            document.getElementById('consumer-ui').style.transform = "translateX(0)";
+            document.getElementById('hud-hp').innerText = "100%";
+            document.getElementById('hud-hp').style.color = "#34d399";
+            updateUI();
+            updateStatus("SYSTEM ONLINE: Ready to execute simulation.", "Ready");
+        }
+    </script>
+</body>
+</html>
